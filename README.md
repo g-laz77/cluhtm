@@ -34,9 +34,13 @@ Run docker container:
 
 To run the code:
 
-```python3 main.py -d <dataset>```
+- Store the dataset in ```./datasets/textual_folds/example.txt```. Where example.txt contains the data samples; one sample per line
+- Store the fasttext embeddings in ```./datasets/wiki-news-300d-1M.vec```
+- ```python3 main.py -d <dataset>```
+
 
 For more information about building and running a docker container, see: https://docs.docker.com/
+
 
 
 ### Cite
