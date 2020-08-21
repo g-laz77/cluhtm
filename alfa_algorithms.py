@@ -2,7 +2,7 @@ from __future__ import division
 
 import codecs
 from numbers import Number
-
+import os
 import numpy as np
 import pandas as pd
 from gensim.models import KeyedVectors
@@ -29,7 +29,7 @@ class AlfaKnn:
         usage_mb = usage_b / 1024 ** 2  # convert bytes to megabytes
         return "{:03.2f} MB".format(usage_mb)
 
-    def create_cosine_cluwords(self, input_vector_file, n_words, k_neighbors, dataset):
+    def create_cosine_cluwords(self, input_vector_file, n_words, k_neighbors, dataset, path_to_save_results):
         input_vector_file = input_vector_file
         df, labels_array = build_word_vector_matrix(input_vector_file, n_words)
         print('NearestNeighbors K={}'.format(k_neighbors))
@@ -45,7 +45,7 @@ class AlfaKnn:
         print('Time {}'.format(end - start))
         print('Saving cluwords')
 
-        self._save_cluwords(labels_array, n_words, k_neighbors, distances, indices, dataset)
+        self._save_cluwords(labels_array, n_words, k_neighbors, distances, indices, dataset, path_to_save_results)
 
         return
 
@@ -97,7 +97,7 @@ class AlfaKnn:
 
         return
 
-    def _save_cluwords(self, labels_array, n_words, k_neighbors, distances, indices, dataset):
+    def _save_cluwords(self, labels_array, n_words, k_neighbors, distances, indices, dataset, path_to_save_results):
         """
         Description
         -----------
@@ -105,7 +105,10 @@ class AlfaKnn:
         
         """
         list_cluwords = np.zeros((n_words, n_words), dtype=np.float16)
-
+        try:
+            os.mkdir('{}'.format(path_to_save_results))
+        except FileExistsError:
+            pass
         # Check if cosine limit was set
         if self.threshold:
             for p in range(0, n_words):
@@ -120,7 +123,7 @@ class AlfaKnn:
                 for i, k in enumerate(indices[p]):
                     list_cluwords[p][k] = round(1 - distances[p][i], 2)
 
-        np.savez_compressed('cluwords_{}.npz'.format(dataset),
+        np.savez_compressed('{}/cluwords_{}.npz'.format(path_to_save_results,dataset),
                             data=list_cluwords,
                             index=np.asarray(labels_array),
                             cluwords=np.asarray(labels_array))

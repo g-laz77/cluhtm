@@ -1,5 +1,6 @@
 # Packages
 import os
+import json
 import pandas as pd
 import numpy as np
 import logging as log
@@ -15,6 +16,7 @@ from reference_nmf import ReferenceNFM
 from topic_stability import TopicStability
 from text.util import save_corpus, load_corpus
 from collections import deque
+from os.path import join
 
 
 def top_words(model, feature_names, n_top_words):
@@ -114,8 +116,8 @@ def create_embedding_models(dataset, embedding_file_path, embedding_type, datase
     return n_words
 
 
-def set_cluwords_representation(dataset, out_prefix, X, class_path):
-    loaded = np.load('cluwords_{}.npz'.format(dataset))
+def set_cluwords_representation(dataset, out_prefix, X, class_path, path_to_save_results, datasets_path):
+    loaded = np.load('{}/{}/cluwords_{}.npz'.format(path_to_save_results, "cluwords",dataset))
     terms = loaded['cluwords']
     del loaded
     y = []
@@ -135,13 +137,21 @@ def set_cluwords_representation(dataset, out_prefix, X, class_path):
         classes[y[document_class]].append(doc_id)
         doc_id += 1
 
-    save_corpus(out_prefix, X, terms, doc_ids, classes)
+    save_corpus(join(path_to_save_results,"data_splits", out_prefix), X, terms, doc_ids, classes)
+    with open('{}.txt'.format(join(path_to_save_results,"data_splits", out_prefix)), "w") as f:
+        arq = open(datasets_path, 'r', encoding="utf-8")
+        doc = arq.readlines()
+        arq.close()
+
+        documents = list(map(str.rstrip, doc))
+        for id in doc_ids:
+            f.write(documents[id]+"\n")
     return y
 
 
-def save_topics(model, tfidf_feature_names, cluwords_tfidf, best_k, topics_documents, y, doc_ids, terms, out_prefix,
-                dq, k_max, depth, parent, hierarchy, max_depth):
-    topics = top_words(model, tfidf_feature_names, 20)
+def save_topics(model, tfidf_feature_names, cluwords_tfidf, best_k, topics_documents, y, doc_ids, terms, out_prefix, path_to_save_results,
+                dq, k_max, depth, parent, hierarchy, max_depth, datasets_path):
+    topics = top_words(model, tfidf_feature_names, 10)
     for k in range(0, best_k):
         topic = np.argwhere(topics_documents == k)
         topic = topic.ravel()
@@ -163,14 +173,22 @@ def save_topics(model, tfidf_feature_names, cluwords_tfidf, best_k, topics_docum
         # if depth < max_depth:
             log.info("Add topic: {} Shape Matrix: {}".format(k, cluwords_tfidf_temp.shape))
             log.info("len(doc_ids): {}".format(len(doc_ids_temp)))
-            for doc_id in doc_ids:
+            for doc_id in doc_ids_temp:
                 if y[doc_id] not in classes:
                     classes[y[doc_id]] = []
 
                 classes[y[doc_id]].append(doc_id)
 
             prefix = "{prefix} {k}".format(prefix=out_prefix, k=k)
-            save_corpus(prefix, csr_matrix(cluwords_tfidf_temp), terms, doc_ids, classes)
+            save_corpus(join(path_to_save_results,prefix), csr_matrix(cluwords_tfidf_temp), terms, doc_ids_temp, classes)
+            with open('{}.txt'.format(join(path_to_save_results,prefix)), "w") as f:
+                arq = open(datasets_path, 'r', encoding="utf-8")
+                doc = arq.readlines()
+                arq.close()
+
+                documents = list(map(str.rstrip, doc))
+                for id in doc_ids_temp:
+                    f.write(documents[id]+"\n")
             dq.appendleft(prefix)
         # else:
         #     log.info("Exclude topic: {} Shape Matrix: {}".format(k, cluwords_tfidf_temp.shape))
@@ -200,7 +218,7 @@ def print_herarchical_structure(output, hierarchy, depth=0, parent='-1', son=0):
 
 def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
                     path_to_save_results, n_threads, k, threshold, class_path, algorithm_type, debug=3):
-    log.basicConfig(filename="{}.log".format(dataset), filemode="w", level=max(50 - (debug * 10), 10),
+    log.basicConfig(filename="{}/{}.log".format(path_to_save_results, dataset), filemode="w", level=max(50 - (debug * 10), 10),
                     format='%(asctime)-18s %(levelname)-10s [%(filename)s:%(lineno)d] %(message)s',
                     datefmt='%d/%m/%Y %H:%M', )
     # Path to files and directories
@@ -213,19 +231,35 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
     except FileExistsError:
         pass
 
+    try:
+        os.mkdir('{}/{}'.format(path_to_save_results,"data_splits"))
+    except FileExistsError:
+        pass
+    
+    try:
+        os.mkdir('{}/{}'.format(path_to_save_results,"stability"))
+    except FileExistsError:
+        pass
+
+    try:
+        os.mkdir('{}/{}'.format(path_to_save_results,"cluwords"))
+    except FileExistsError:
+        pass
+
     Cluwords(algorithm=algorithm_type,
              embedding_file_path=embedding_file_path,
              n_words=word_count,
              k_neighbors=k,
              threshold=threshold,
              n_jobs=n_threads,
-             dataset=dataset
+             dataset=dataset,
+             path_to_save_results=join(path_to_save_results,"cluwords")
              )
 
     cluwords = CluwordsTFIDF(dataset=dataset,
                              dataset_file_path=datasets_path,
                              n_words=word_count,
-                             path_to_save_cluwords=path_to_save_results,
+                             path_to_save_cluwords=join(path_to_save_results,"cluwords"),
                              class_file_path=class_path)
     log.info('Computing TFIDF...')
     cluwords_tfidf = cluwords.fit_transform()
@@ -235,12 +269,14 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
     k_min = 5
     k_max = 20
     n_runs = 5
-    max_depth = 3
+    max_depth = 2
     sufix = "{dataset}_{depth}_{parent_topic}".format(dataset=dataset, depth=0, parent_topic='-1')
     y = set_cluwords_representation(dataset,
                                     sufix,
                                     cluwords_tfidf_temp,
-                                    class_path)
+                                    class_path,
+                                    path_to_save_results, 
+                                    datasets_path)
     dq = deque([sufix])
     hierarchy = {}
     while dq:
@@ -253,14 +289,14 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
         log.info("Parent Topic {}".format(parent))
         log.info("Reference NMF")
         ReferenceNFM().run(dataset=dataset,
-                           corpus_path="{}.pkl".format(sufix),
-                           dir_out_base="reference-{}".format(sufix),
+                           corpus_path="{}/{}/{}.pkl".format(path_to_save_results, "data_splits",sufix),
+                           dir_out_base="{}/{}/reference-{}".format(path_to_save_results,"stability",sufix),
                            kmin=k_min,
                            kmax=k_max)
         log.info("Generate NMF")
         GenerateNFM().run(dataset=dataset,
-                          corpus_path="{}.pkl".format(sufix),
-                          dir_out_base="topic-{}".format(sufix),
+                          corpus_path="{}/{}/{}.pkl".format(path_to_save_results,"data_splits",sufix),
+                          dir_out_base="{}/{}/topic-{}".format(path_to_save_results,"stability",sufix),
                           kmin=k_min,
                           kmax=k_max,
                           runs=n_runs)
@@ -268,9 +304,9 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
         dict_stability = {}
         for k in range(k_min, k_max+1):
             stability = TopicStability().run(dataset=dataset,
-                                             reference_rank_path="reference-{}/nmf_k{:02}/ranks_reference.pkl"
-                                             .format(sufix, k),
-                                             rank_paths=glob.glob("topic-{}/nmf_k{:02}/ranks*".format(sufix, k)),
+                                             reference_rank_path="{}/{}/reference-{}/nmf_k{:02}/ranks_reference.pkl"
+                                             .format(path_to_save_results,"stability",sufix, k),
+                                             rank_paths=glob.glob("{}/{}/topic-{}/nmf_k{:02}/ranks*".format(path_to_save_results,"stability",sufix, k)),
                                              top=10)
             dict_stability[k] = stability
 
@@ -278,7 +314,7 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
         log.info("Selected K {k} => Stability({k}) = {stability} (median)".format(k=best_k,
                                                                                   stability=round(dict_stability[best_k],
                                                                                                   4)))
-        X, terms, doc_ids, classes = load_corpus("{}.pkl".format(sufix))
+        X, terms, doc_ids, classes = load_corpus("{}/{}/{}.pkl".format(path_to_save_results,"data_splits",sufix))
         # Fit the NMF model
         log.info("\nFitting the NMF model (Frobenius norm) with tf-idf features, shape {}...".format(X.shape))
         nmf = NMF(n_components=best_k,
@@ -301,16 +337,19 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
                                     out_prefix="{dataset}_{depth}_{parent_topic}".format(dataset=dataset,
                                                                                          depth=depth+1,
                                                                                          parent_topic=parent),
+                                    path_to_save_results=join(path_to_save_results,"data_splits"),
                                     dq=dq,
                                     k_max=k_max,
                                     depth=depth,
                                     parent=parent,
                                     hierarchy=hierarchy,
-                                    max_depth=max_depth)
+                                    max_depth=max_depth,
+                                    datasets_path=datasets_path)
         log.info('End Iteration...')
 
     log.info(hierarchy)
-
+    with open('{}/hierarchy_structure.json'.format(path_to_save_results),'w', encoding='utf-8') as f:
+        json.dump(hierarchy, f)
     output = open('{}/hierarchical_struture.txt'.format(path_to_save_results), 'w', encoding="utf-8")
     print_herarchical_structure(output=output, hierarchy=hierarchy)
     output.close()
@@ -335,16 +374,17 @@ def save_cluword_representation(dataset, word_count, path_to_save_model, dataset
              k_neighbors=k,
              threshold=threshold,
              n_jobs=n_threads,
-             dataset=dataset
+             dataset=dataset,
+             path_to_save_results=join(path_to_save_results,"cluwords")
              )
 
     cluwords = CluwordsTFIDF(dataset=dataset,
                              dataset_file_path=datasets_path,
                              n_words=word_count,
-                             path_to_save_cluwords=path_to_save_results,
+                             path_to_save_cluwords=join(path_to_save_results,"cluwords"),
                              class_file_path=class_path)
     log.info('Computing TFIDF...')
     cluwords_tfidf = cluwords.fit_transform()
-    np.savez_compressed('{}/cluwords_representation_{}.npz'.format(path_to_save_results, dataset),
+    np.savez_compressed('{}/cluwords_representation_{}.npz'.format(join(path_to_save_results,"cluwords"), dataset),
                         tfidf=cluwords_tfidf,
                         feature_names=cluwords.vocab_cluwords)

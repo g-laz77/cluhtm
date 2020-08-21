@@ -43,7 +43,7 @@ class Cluwords:
 
     """
 
-    def __init__(self, dataset, algorithm, embedding_file_path, n_words, k_neighbors, threshold=.85, n_jobs=1, verbose=0):
+    def __init__(self, dataset, algorithm, embedding_file_path, n_words, k_neighbors, path_to_save_results,threshold=.85, n_jobs=1, verbose=0):
         if verbose:
             print('K: {}'.format(k_neighbors))
             print('Cossine: {}'.format(threshold))
@@ -55,7 +55,8 @@ class Cluwords:
             knn.create_cosine_cluwords(input_vector_file=embedding_file_path,
                                        n_words=n_words,
                                        k_neighbors=k_neighbors,
-                                       dataset=dataset)
+                                       dataset=dataset,
+                                       path_to_save_results=path_to_save_results)
         elif algorithm == 'knn_mahalanobis':
             print('kNN Mahalanobis...')
             knn = AlfaKnn(threshold=threshold,
@@ -63,7 +64,8 @@ class Cluwords:
             knn.create_mahalanobis_cluwords(input_vector_file=embedding_file_path,
                                             n_words=n_words,
                                             k_neighbors=k_neighbors,
-                                            dataset=dataset)
+                                            dataset=dataset,
+                                            path_to_save_results=path_to_save_results)
         # elif algorithm == 'k-means':
         #     pass
         # elif algorithm == 'dbscan':
@@ -116,7 +118,7 @@ class CluwordsTFIDF:
         self.n_words = n_words
         self.cluwords_tf_idf = None
         self.cluwords_idf = None
-        loaded = np.load('cluwords_{}.npz'.format(dataset))
+        loaded = np.load('{}/cluwords_{}.npz'.format(path_to_save_cluwords,dataset))
         self.vocab = loaded['index']
         self.vocab_cluwords = loaded['cluwords']
         self.cluwords_data = loaded['data']
@@ -156,7 +158,7 @@ class CluwordsTFIDF:
         self._cluwords_tf()
         print('\nComputing IDF...')
         self._cluwords_idf()
-
+        print(self.cluwords_tf_idf.shape, self.cluwords_idf.shape)
         self.cluwords_tf_idf = np.multiply(self.cluwords_tf_idf, np.transpose(self.cluwords_idf))
 
         self._save_tf_idf_features_libsvm()
@@ -256,7 +258,10 @@ class CluwordsTFIDF:
 
         start = timeit.default_timer()
         print('Sum')
+        print(mu_hyp.shape)
         self.cluwords_idf = np.sum(mu_hyp, axis=0)
+        print(self.cluwords_idf.shape)
+
         end = timeit.default_timer()
         print('Time {}'.format(end - start))
 
@@ -266,6 +271,8 @@ class CluwordsTFIDF:
         start = timeit.default_timer()
         print('log')
         self.cluwords_idf = np.log10(np.divide(self.n_documents, self.cluwords_idf))
+        print(self.cluwords_idf.shape)
+
         end = timeit.default_timer()
         print('Time {}'.format(end - start))
         # print('IDF:')

@@ -4,6 +4,7 @@ from script_functions import create_embedding_models
 from script_functions import generate_topics
 from script_functions import save_cluword_representation
 
+from datetime import datetime
 
 def main():
     parser = OptionParser(usage="usage: %prog [options] corpus_file")
@@ -11,23 +12,30 @@ def main():
                       help="base output directory (default is current directory)", default=None)
     options, args = parser.parse_args()
     # Paths and files paths
-    MAIN_PATH = '/cluhtm'
+    MAIN_INPUT_PATH = './datasets'
+    MAIN_OUTPUT_PATH = '/tmp/cluhtm/{}'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
     EMBEDDING_RESULTS = 'fasttext_wiki'
-    PATH_TO_SAVE_RESULTS = '{}/{}/results'.format(MAIN_PATH, EMBEDDING_RESULTS)
-    PATH_TO_SAVE_MODEL = '{}/{}/datasets/gn_w2v_models'.format(MAIN_PATH, EMBEDDING_RESULTS)
-    DATASETS_PATH = '/{}/textual_folds/wppPre.txt'.format(MAIN_PATH)
-    EMBEDDINGS_FILE_PATH = '/{}/wiki-news-300d-1M.vec'.format(MAIN_PATH)
+    PATH_TO_SAVE_RESULTS = '{}/{}/results'.format(MAIN_OUTPUT_PATH, EMBEDDING_RESULTS)
+    PATH_TO_SAVE_MODEL = '{}/{}/datasets/gn_w2v_models'.format(MAIN_OUTPUT_PATH, EMBEDDING_RESULTS)
+    DATASETS_PATH = '{}/textual_folds/goustoPre.txt'.format(MAIN_INPUT_PATH)
+    EMBEDDINGS_FILE_PATH = '{}/wiki-news-300d-1M.vec'.format(MAIN_INPUT_PATH)
     EMBEDDINGS_BIN_TYPE = False
     DATASET = options.dataset
-    CLASS_PATH = '/{}/textual_folds/wppClass.txt'.format(MAIN_PATH)
+    CLASS_PATH = '{}/textual_folds/goustoClass.txt'.format(MAIN_INPUT_PATH)
     N_THREADS = 6
     ALGORITHM_TYPE = 'knn_cosine'
 
     try:
-        os.mkdir('{}/{}'.format(MAIN_PATH, EMBEDDING_RESULTS))
-        os.mkdir('{}/{}/results'.format(MAIN_PATH, EMBEDDING_RESULTS))
-        os.mkdir('{}/{}/datasets'.format(MAIN_PATH, EMBEDDING_RESULTS))
-        os.mkdir('{}/{}/datasets/gn_w2v_models'.format(MAIN_PATH, EMBEDDING_RESULTS))
+        os.mkdir('{}'.format("/tmp/cluhtm"))
+    except FileExistsError:
+        pass
+    
+    try:
+        os.mkdir('{}'.format(MAIN_OUTPUT_PATH))
+        os.mkdir('{}/{}'.format(MAIN_OUTPUT_PATH, EMBEDDING_RESULTS))
+        os.mkdir('{}/{}/results'.format(MAIN_OUTPUT_PATH, EMBEDDING_RESULTS))
+        os.mkdir('{}/{}/datasets'.format(MAIN_OUTPUT_PATH, EMBEDDING_RESULTS))
+        os.mkdir('{}/{}/datasets/gn_w2v_models'.format(MAIN_OUTPUT_PATH, EMBEDDING_RESULTS))
     except FileExistsError:
         pass
 
