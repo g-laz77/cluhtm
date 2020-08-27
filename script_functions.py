@@ -17,6 +17,10 @@ from topic_stability import TopicStability
 from text.util import save_corpus, load_corpus
 from collections import deque
 from os.path import join
+import spacy
+import re
+
+nlp = spacy.load('en_core_web_lg', parse=True, tag=True, entity=True)
 
 
 def top_words(model, feature_names, n_top_words):
@@ -148,6 +152,94 @@ def set_cluwords_representation(dataset, out_prefix, X, class_path, path_to_save
             f.write(documents[id]+"\n")
     return y
 
+def prepare_phrase(token):
+    phrase = ""
+    compound = ""
+
+    if token.pos_ in ['NOUN', 'PROPN']:
+        phrase = token.text
+        for j in token.lefts:
+            if j.dep_ == 'compound':
+                compound = j.text + ' ' + token.text
+            elif j.pos_ == "ADJ" and j.dep_ in ['amod','nummod']:
+                str1 = j.text + ' ' + token.text
+                str2 = ""
+                for k in j.lefts:
+                    if k.dep_ == 'advmod': 
+                        str2 = k.text + ' ' + str1
+                
+                if str2 != "":
+                    phrase = str2
+                else:
+                    phrase = str1
+                break
+          
+        for l in token.rights:
+            if l.pos_ == 'VERB' and l.dep_ == 'acl':
+                phrase += ' ' + l.text
+            elif l.dep_ == "prep":
+                for k in l.rights:
+                    if k.pos_ in ['NOUN', 'PROPN']:
+                        phrase += ' ' + l.text + ' ' + prepare_phrase(k)
+                        break
+                break
+            elif l.dep_ == "dobj":
+                phrase += ' ' + l.text
+        
+        if compound != "":
+            mtch = re.search(re.escape(token.text),phrase)
+            if mtch is not None:
+                phrase = phrase.replace(mtch.group(),compound)
+    
+    elif token.pos_ == "VERB":
+        phrase = token.text
+        for j in token.lefts:
+            if (j.dep_ in ['advmod', 'neg']):
+                phrase = j.text + ' ' + token.text
+                break
+            elif j.pos_ in ['NOUN', 'PROPN'] and j.dep_ in ['nsubj']:
+                phrase = prepare_phrase(j) + ' ' + phrase
+        
+        for j in token.rights:
+            if j.pos_ in ['NOUN', 'PROPN']:
+                phrase += ' ' + prepare_phrase(j)
+            elif j.dep_ == 'advmod' and j.pos_ == 'ADV':
+                phrase = phrase + ' ' + j.text
+            elif j.dep_ in ['dobj', 'pobj']:
+                phrase = phrase + ' ' + j.text
+                break
+    
+    elif token.pos_ == "ADJ":
+        phrase = token.text
+        for j,h in zip(token.rights,token.lefts):
+            if j.dep_ == 'xcomp':
+                for k in j.lefts:
+                    if k.dep_ == 'aux':
+                        phrase = h.text + ' ' + token.text + ' ' + k.text + ' ' + j.text
+                        break
+                break
+                
+    if phrase.strip() == "":
+        return ""
+    else:
+        return phrase.strip().lower()
+
+def fetch_topic_phrases(docs, topic_words):
+    word_phrase_map = {}
+    for word in topic_words:
+        word_phrase_map[word] = []
+        phrases = [word]
+
+        for doc in docs:
+            analysed_doc = nlp(doc)
+            for token in analysed_doc:
+                if token.text == word:
+                    phrase = prepare_phrase(token)
+                    if phrase != "" and phrase != token.text:
+                        phrases.append(phrase)
+        word_phrase_map[word] = list(set(phrases))
+
+    return word_phrase_map
 
 def save_topics(model, tfidf_feature_names, cluwords_tfidf, best_k, topics_documents, y, doc_ids, terms, out_prefix, path_to_save_results,
                 dq, k_max, depth, parent, hierarchy, max_depth, datasets_path):
@@ -167,8 +259,10 @@ def save_topics(model, tfidf_feature_names, cluwords_tfidf, best_k, topics_docum
         if parent not in hierarchy[depth]:
             hierarchy[depth][parent] = {}
 
-        hierarchy[depth][parent][k] = topics[k]
+        hierarchy[depth][parent][k] = {}
+        # hierarchy[depth][parent][k] = topics[k]
         classes = {}
+        prefix = "{prefix} {k}".format(prefix=out_prefix, k=k)
         if len(doc_ids_temp) > k_max and depth+1 < max_depth:
         # if depth < max_depth:
             log.info("Add topic: {} Shape Matrix: {}".format(k, cluwords_tfidf_temp.shape))
@@ -179,21 +273,27 @@ def save_topics(model, tfidf_feature_names, cluwords_tfidf, best_k, topics_docum
 
                 classes[y[doc_id]].append(doc_id)
 
-            prefix = "{prefix} {k}".format(prefix=out_prefix, k=k)
+            # prefix = "{prefix} {k}".format(prefix=out_prefix, k=k)
             save_corpus(join(path_to_save_results,prefix), csr_matrix(cluwords_tfidf_temp), terms, doc_ids_temp, classes)
-            with open('{}.txt'.format(join(path_to_save_results,prefix)), "w") as f:
+
+            dq.appendleft(prefix)
+        # else:
+        #     log.info("Exclude topic: {} Shape Matrix: {}".format(k, cluwords_tfidf_temp.shape))
+        #     log.info("len(doc_ids): {}".format(len(doc_ids_temp)))
+            print(topics[k].split())
+        
+        topic_docs = []
+        with open('{}.txt'.format(join(path_to_save_results,prefix)), "w") as f:
                 arq = open(datasets_path, 'r', encoding="utf-8")
                 doc = arq.readlines()
                 arq.close()
 
                 documents = list(map(str.rstrip, doc))
                 for id in doc_ids_temp:
+                    topic_docs.append(documents[id])
                     f.write(documents[id]+"\n")
-            dq.appendleft(prefix)
-        # else:
-        #     log.info("Exclude topic: {} Shape Matrix: {}".format(k, cluwords_tfidf_temp.shape))
-        #     log.info("len(doc_ids): {}".format(len(doc_ids_temp)))
-
+        hierarchy[depth][parent][k] = fetch_topic_phrases(topic_docs, topics[k].split())
+    
     return dq, hierarchy
 
 
@@ -286,6 +386,8 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
         parent = sufix.split("_")[-1]
         depth = int(sufix.split("_")[1])
         log.info("Depth {}".format(depth))
+        # if depth == max_depth:
+        #     break
         log.info("Parent Topic {}".format(parent))
         log.info("Reference NMF")
         ReferenceNFM().run(dataset=dataset,
@@ -350,9 +452,9 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
     log.info(hierarchy)
     with open('{}/hierarchy_structure.json'.format(path_to_save_results),'w', encoding='utf-8') as f:
         json.dump(hierarchy, f)
-    output = open('{}/hierarchical_struture.txt'.format(path_to_save_results), 'w', encoding="utf-8")
-    print_herarchical_structure(output=output, hierarchy=hierarchy)
-    output.close()
+    # output = open('{}/hierarchical_struture.txt'.format(path_to_save_results), 'w', encoding="utf-8")
+    # print_herarchical_structure(output=output, hierarchy=hierarchy)
+    # output.close()
 
 
 def save_cluword_representation(dataset, word_count, path_to_save_model, datasets_path,
