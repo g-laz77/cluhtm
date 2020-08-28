@@ -152,6 +152,14 @@ def set_cluwords_representation(dataset, out_prefix, X, class_path, path_to_save
             f.write(documents[id]+"\n")
     return y
 
+def prep_phrase_2(word, analysed_doc):
+    phrase = ""
+    compound = ""
+    if word.pos_ in ["VERB", "NOUN"] or word.dep_ in ["xcomp", "ccomp"]:
+        subtree_span = analysed_doc[word.left_edge.i : word.right_edge.i + 1]
+        phrase = subtree_span.text
+    return phrase.strip().lower()
+
 def prepare_phrase(token):
     phrase = ""
     compound = ""
@@ -234,7 +242,7 @@ def fetch_topic_phrases(docs, topic_words):
             analysed_doc = nlp(doc)
             for token in analysed_doc:
                 if token.text == word:
-                    phrase = prepare_phrase(token)
+                    phrase = prep_phrase_2(token, analysed_doc)
                     if phrase != "" and phrase != token.text:
                         phrases.append(phrase)
         word_phrase_map[word] = list(set(phrases))
