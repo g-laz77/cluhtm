@@ -155,7 +155,7 @@ def set_cluwords_representation(dataset, out_prefix, X, class_path, path_to_save
 def prep_phrase_2(word, analysed_doc):
     phrase = ""
     compound = ""
-    if word.pos_ in ["VERB", "NOUN"] or word.dep_ in ["xcomp", "ccomp"]:
+    if word.pos_ in ["VERB", "NOUN", "ADJ", "PROPN"] or word.dep_ in ["xcomp", "ccomp"]:
         subtree_span = analysed_doc[word.left_edge.i : word.right_edge.i + 1]
         phrase = subtree_span.text
     return phrase.strip().lower()
