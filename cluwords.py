@@ -1,6 +1,7 @@
 import timeit
 import warnings
-
+from nltk.corpus import stopwords
+from nltk import word_tokenize
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -122,6 +123,11 @@ class CluwordsTFIDF:
         self.vocab = loaded['index']
         self.vocab_cluwords = loaded['cluwords']
         self.cluwords_data = loaded['data']
+        self.stop_words = list(set(stopwords.words('english')))
+        self.useful_words = ['not', 'never', 'less', 'without', 'cannot', 'nobody', 'none',
+                        'call','after', 'while','beyond', 'several', 'again', 'front',
+                        'always', 'one', 'two', 'three', 'four', 'five', 'sometime', 
+                        'another', 'nor', 'on', '!','?', 'no']
 
         self.Y = []
         with open(class_file_path, 'r', encoding="utf-8") as input_file:
@@ -141,6 +147,10 @@ class CluwordsTFIDF:
         arq.close()
 
         self.documents = list(map(str.rstrip, doc))
+        for i in range(len(self.documents)):
+            word_tokens = word_tokenize(self.documents[i])
+            word_tokens = [w for w in word_tokens if not w in self.stop_words or w in self.useful_words]
+            self.documents[i] = ' '.join(word_tokens)
         self.n_documents = len(self.documents)
 
     def fit_transform(self):

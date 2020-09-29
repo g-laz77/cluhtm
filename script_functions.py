@@ -375,7 +375,7 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
     cluwords_tfidf_temp = csr_matrix(cluwords_tfidf_temp)  # Convert the cluwords_tfidf array matrix to a sparse cluwords
     # RANGE OF TOPICS THAT WILL BE EXPLOIT BY THE STRATEGY
     k_min = 5
-    k_max = 20
+    k_max = 30
     n_runs = 5
     max_depth = 2
     sufix = "{dataset}_{depth}_{parent_topic}".format(dataset=dataset, depth=0, parent_topic='-1')

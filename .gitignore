@@ -3,3 +3,5 @@
 *.vec
 *.txt
 *.log
+hierarchies/
+*.json

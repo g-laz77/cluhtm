@@ -17,11 +17,11 @@ def main():
     EMBEDDING_RESULTS = 'fasttext_wiki'
     PATH_TO_SAVE_RESULTS = '{}/{}/results'.format(MAIN_OUTPUT_PATH, EMBEDDING_RESULTS)
     PATH_TO_SAVE_MODEL = '{}/{}/datasets/gn_w2v_models'.format(MAIN_OUTPUT_PATH, EMBEDDING_RESULTS)
-    DATASETS_PATH = '{}/textual_folds/goustoPre.txt'.format(MAIN_INPUT_PATH)
+    DATASETS_PATH = '{}/textual_folds/bczendeskPre.txt'.format(MAIN_INPUT_PATH)
     EMBEDDINGS_FILE_PATH = '{}/wiki-news-300d-1M.vec'.format(MAIN_INPUT_PATH)
     EMBEDDINGS_BIN_TYPE = False
     DATASET = options.dataset
-    CLASS_PATH = '{}/textual_folds/goustoClass.txt'.format(MAIN_INPUT_PATH)
+    CLASS_PATH = '{}/textual_folds/bczendeskClass.txt'.format(MAIN_INPUT_PATH)
     N_THREADS = 6
     ALGORITHM_TYPE = 'knn_cosine'
 

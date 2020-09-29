@@ -2,6 +2,8 @@ import os
 import io
 from time import time
 
+from nltk.corpus import stopwords
+from nltk import word_tokenize
 from gensim.models import KeyedVectors
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -29,6 +31,11 @@ class CreateEmbeddingModels:
         self.path_to_save_model = path_to_save_model
         self._read_embedding(embedding_file_path, embedding_type)
         self._make_dir(path_to_save_model)
+        self.stop_words = list(set(stopwords.words('english')))
+        self.useful_words = ['not', 'never', 'less', 'without', 'cannot', 'nobody', 'none',
+                        'call','after', 'while','beyond', 'several', 'again', 'front',
+                        'always', 'one', 'two', 'three', 'four', 'five', 'sometime', 
+                        'another', 'nor', 'on', '!','?', 'no']
 
     def create_embedding_models(self, dataset):
         """
@@ -91,7 +98,10 @@ class CreateEmbeddingModels:
         doc = arq.readlines()
         arq.close()
         documents = list(map(str.rstrip, doc))
-
+        for i in range(len(documents)):
+            word_tokens = word_tokenize(documents[i])
+            word_tokens = [w for w in word_tokens if not w in self.stop_words or w in self.useful_words]
+            documents[i] = ' '.join(word_tokens)
         return documents
 
     def _make_dir(self, path_to_save_model):
