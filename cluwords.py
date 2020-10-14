@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 
 from alfa_algorithms import AlfaKnn
+from nltk.stem.wordnet import WordNetLemmatizer
 
 
 class Cluwords:
@@ -145,11 +146,12 @@ class CluwordsTFIDF:
         arq = open(self.dataset_file_path, 'r', encoding="utf-8")
         doc = arq.readlines()
         arq.close()
-
+        lemmatizer = WordNetLemmatizer()
         self.documents = list(map(str.rstrip, doc))
         for i in range(len(self.documents)):
             word_tokens = word_tokenize(self.documents[i])
-            word_tokens = [w for w in word_tokens if not w in self.stop_words or w in self.useful_words]
+            # word_tokens = [w for w in word_tokens if not w in self.stop_words or w in self.useful_words]
+            word_tokens = [lemmatizer.lemmatize(w) for w in word_tokens if (w not in self.stop_words or w in self.useful_words) and str.isalpha(w)]
             self.documents[i] = ' '.join(word_tokens)
         self.n_documents = len(self.documents)
 

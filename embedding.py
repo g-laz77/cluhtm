@@ -6,7 +6,7 @@ from nltk.corpus import stopwords
 from nltk import word_tokenize
 from gensim.models import KeyedVectors
 from sklearn.feature_extraction.text import CountVectorizer
-
+from nltk.stem.wordnet import WordNetLemmatizer
 
 class CreateEmbeddingModels:
     """
@@ -35,7 +35,7 @@ class CreateEmbeddingModels:
         self.useful_words = ['not', 'never', 'less', 'without', 'cannot', 'nobody', 'none',
                         'call','after', 'while','beyond', 'several', 'again', 'front',
                         'always', 'one', 'two', 'three', 'four', 'five', 'sometime', 
-                        'another', 'nor', 'on', '!','?', 'no']
+                        'another', 'nor', 'on', '!','?', 'no', "jpg", 'jpeg', 'png']
 
     def create_embedding_models(self, dataset):
         """
@@ -98,9 +98,12 @@ class CreateEmbeddingModels:
         doc = arq.readlines()
         arq.close()
         documents = list(map(str.rstrip, doc))
+        lemmatizer = WordNetLemmatizer()
         for i in range(len(documents)):
             word_tokens = word_tokenize(documents[i])
-            word_tokens = [w for w in word_tokens if not w in self.stop_words or w in self.useful_words]
+            # word_tokens = [w for w in word_tokens if not w in self.stop_words or w in self.useful_words]
+            word_tokens = [lemmatizer.lemmatize(w) for w in word_tokens if (w not in self.stop_words or w in self.useful_words) and str.isalpha(w)]
+
             documents[i] = ' '.join(word_tokens)
         return documents
 

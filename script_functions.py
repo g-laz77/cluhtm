@@ -250,7 +250,7 @@ def fetch_topic_phrases(docs, topic_words):
     return word_phrase_map
 
 def save_topics(model, tfidf_feature_names, cluwords_tfidf, best_k, topics_documents, y, doc_ids, terms, out_prefix, path_to_save_results,
-                dq, k_max, depth, parent, hierarchy, max_depth, datasets_path):
+                dq, k_max, depth, parent, hierarchy, hs_counts, max_depth, datasets_path):
     topics = top_words(model, tfidf_feature_names, 10)
     for k in range(0, best_k):
         topic = np.argwhere(topics_documents == k)
@@ -263,11 +263,14 @@ def save_topics(model, tfidf_feature_names, cluwords_tfidf, best_k, topics_docum
 
         if depth not in hierarchy:
             hierarchy[depth] = {}
+            hs_counts[depth] = {}
 
         if parent not in hierarchy[depth]:
             hierarchy[depth][parent] = {}
+            hs_counts[depth][parent] = {}
 
         hierarchy[depth][parent][k] = {}
+        hs_counts[depth][parent][k] = len(doc_ids_temp)
         # hierarchy[depth][parent][k] = topics[k]
         classes = {}
         prefix = "{prefix} {k}".format(prefix=out_prefix, k=k)
@@ -302,7 +305,7 @@ def save_topics(model, tfidf_feature_names, cluwords_tfidf, best_k, topics_docum
                     f.write(documents[id]+"\n")
         hierarchy[depth][parent][k] = fetch_topic_phrases(topic_docs, topics[k].split())
     
-    return dq, hierarchy
+    return dq, hierarchy, hs_counts
 
 
 def print_herarchical_structure(output, hierarchy, depth=0, parent='-1', son=0):
@@ -387,6 +390,7 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
                                     datasets_path)
     dq = deque([sufix])
     hierarchy = {}
+    hs_counts = {}
     while dq:
         log.info("Deque {}".format(dq))
         sufix = dq.pop()
@@ -436,7 +440,7 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
         tfidf_feature_names = list(cluwords.vocab_cluwords)
         topics_documents = np.argmax(w, axis=1)
 
-        dq, hierarchy = save_topics(model=nmf,
+        dq, hierarchy, hs_counts = save_topics(model=nmf,
                                     tfidf_feature_names=tfidf_feature_names,
                                     cluwords_tfidf=X.toarray(),
                                     best_k=best_k,
@@ -453,6 +457,7 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
                                     depth=depth,
                                     parent=parent,
                                     hierarchy=hierarchy,
+                                    hs_counts=hs_counts,
                                     max_depth=max_depth,
                                     datasets_path=datasets_path)
         log.info('End Iteration...')
@@ -460,6 +465,9 @@ def generate_topics(dataset, word_count, path_to_save_model, datasets_path,
     log.info(hierarchy)
     with open('{}/hierarchy_structure.json'.format(path_to_save_results),'w', encoding='utf-8') as f:
         json.dump(hierarchy, f)
+    with open('{}/hs_counts.json'.format(path_to_save_results),'w', encoding='utf-8') as f:
+        json.dump(hs_counts, f)
+
     # output = open('{}/hierarchical_struture.txt'.format(path_to_save_results), 'w', encoding="utf-8")
     # print_herarchical_structure(output=output, hierarchy=hierarchy)
     # output.close()
